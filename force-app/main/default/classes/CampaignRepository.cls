@@ -1,13 +1,17 @@
 public with sharing class CampaignRepository {
     public static final String FOOBAR_WILDCARD = '%Foobar%';
 
-    public Campaign findRecentCampaign() {
-        Datetime thirtyMinutesAgo = System.now().addMinutes(-5);
-        List<Campaign> campaigns = [SELECT Id, Name
-                                    FROM Campaign
-                                    WHERE CreatedDate >= :thirtyMinutesAgo
-                                    AND Name LIKE :FOOBAR_WILDCARD
-                                    ORDER BY CreatedDate desc LIMIT 1];
+    public Campaign findRecentFoobarCampaign() {
+        CampaignReuseIntervalSettings__c settings = CampaignReuseIntervalSettings__c.getInstance();
+        Datetime reuseIntervalStart = System.now().addMinutes((Integer) - settings.minutes__c);
+        List<Campaign> campaigns = [
+            SELECT Id, Name
+            FROM Campaign
+            WHERE CreatedDate >= :reuseIntervalStart
+                AND Name LIKE :FOOBAR_WILDCARD
+                AND OwnerId =:UserInfo.getUserId()
+            ORDER BY CreatedDate desc LIMIT 1
+            ];
         if(campaigns.isEmpty()) {
             return null;
         }

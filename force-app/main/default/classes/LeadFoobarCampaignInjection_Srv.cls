@@ -1,10 +1,9 @@
 public with sharing class LeadFoobarCampaignInjection_Srv {
     private static LeadFoobarCampaignInjection_Srv instance;
-    private LeadRepository leadRepository = new LeadRepository();
+    private static String existingCampaignId;
     private CampaignRepository campaignRepository = new CampaignRepository();
     private CampaignMemberRepository campaignMemberRepository = new CampaignMemberRepository();
 
-    public static final String FOOBAR_WILDCARD = '%Foobar%';
 
     private LeadFoobarCampaignInjection_Srv() {}
 
@@ -16,34 +15,25 @@ public with sharing class LeadFoobarCampaignInjection_Srv {
     }
 
     public void processFoobarLeads(List<Lead> leads) {
-        List<Lead> foobarLeads = leadRepository.findLeadsByIds(getIdsFromLeads(leads));
         // TODO: Current implementation assumes leads have the same owner. This assumption should be validated in the future.
-        String campaignName = setCampaignName(foobarLeads[0].Owner.Name);
-        Campaign newCampaign = createNewCampaign(campaignName);      
-        campaignMemberRepository.createCampaignMembers(foobarLeads, newCampaign.Id);            
+        if(existingCampaignId == null) {
+            existingCampaignId = getCampaignId();
+        }   
+        campaignMemberRepository.createCampaignMembers(leads, existingCampaignId);            
     }
 
     //ta metoda mi się nie podoba, wydaje mi się że jest za długa.Zastanawiam się czy nie powinienem najpierw sprawdzać czy istnieje a pozniej jakby nie zwróciło wyników to tworzyć nowe
     @TestVisible
-    private Campaign createNewCampaign(String campaignName) {
-        Campaign recentCampaign = campaignRepository.findRecentCampaign();
+    private Id getCampaignId() {
+        Campaign recentCampaign = campaignRepository.findRecentFoobarCampaign();
         if(recentCampaign != null) {
-            return recentCampaign;
+            return recentCampaign.Id;
         }
-        return campaignRepository.createCampaign(campaignName);
+        return campaignRepository.createCampaign(setCampaignName()).Id;
     }
     
     @TestVisible
-    private String setCampaignName(String ownerName) {
-        return LeadHandler.FOOBAR_LEAD_SOURCE + ' ' + ownerName + ' ' + Datetime.now();
-    }
-
-    @TestVisible
-    private List<Id> getIdsFromLeads(List<Lead> leads) {
-        List<Id> leadIds = new List<Id>();
-        for(Lead lead : leads) {
-            leadIds.add(lead.Id);
-        }
-        return leadIds;
+    private String setCampaignName() {
+        return LeadHandler.FOOBAR_LEAD_SOURCE + ' ' + UserInfo.getName() + ' ' + Datetime.now();
     }
 }
